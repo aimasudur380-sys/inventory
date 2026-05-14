@@ -1,0 +1,309 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Warehouse Inventory</title>
+<link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #0d0f14; --surface: #161920; --border: #252933;
+    --accent: #f0a500; --text: #e8eaf0; --muted: #6b7280;
+    --in-stock: #22c55e; --low-stock: #f59e0b; --fair-stock: #3b82f6; --out-stock: #ef4444;
+  }
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:var(--bg); color:var(--text); font-family:'DM Sans',sans-serif; min-height:100vh; }
+  header {
+    background:linear-gradient(135deg,#0d0f14 0%,#1a1f2e 100%);
+    border-bottom:2px solid var(--accent); padding:28px 40px 20px;
+    position:sticky; top:0; z-index:100; box-shadow:0 4px 40px rgba(240,165,0,0.15);
+  }
+  .header-top { display:flex; align-items:flex-end; justify-content:space-between; gap:20px; flex-wrap:wrap; }
+  h1 { font-family:'Bebas Neue',sans-serif; font-size:2.8rem; letter-spacing:3px; color:var(--accent); line-height:1; }
+  h1 span { color:var(--text); }
+  .subtitle { font-size:.8rem; color:var(--muted); letter-spacing:2px; text-transform:uppercase; margin-top:4px; }
+  .stats { display:flex; gap:20px; flex-wrap:wrap; }
+  .stat { text-align:center; }
+  .stat-num { font-family:'Bebas Neue',sans-serif; font-size:1.6rem; line-height:1; }
+  .stat-label { font-size:.65rem; color:var(--muted); letter-spacing:1px; text-transform:uppercase; }
+  .stat.green .stat-num { color:var(--in-stock); }
+  .stat.yellow .stat-num { color:var(--low-stock); }
+  .stat.blue .stat-num { color:var(--fair-stock); }
+  .stat.red .stat-num { color:var(--out-stock); }
+  .controls {
+    padding:20px 40px; background:var(--surface); border-bottom:1px solid var(--border);
+    display:flex; gap:12px; flex-wrap:wrap; align-items:center;
+  }
+  .search-wrap { position:relative; flex:1; min-width:220px; }
+  .search-wrap input {
+    width:100%; padding:10px 16px 10px 42px; background:#0d0f14;
+    border:1px solid var(--border); border-radius:8px; color:var(--text);
+    font-size:.9rem; font-family:'DM Sans',sans-serif; outline:none; transition:.2s;
+  }
+  .search-wrap input:focus { border-color:var(--accent); }
+  .search-icon { position:absolute; left:14px; top:50%; transform:translateY(-50%); color:var(--muted); }
+  .filter-btn {
+    padding:10px 18px; border-radius:8px; border:1px solid var(--border);
+    background:var(--bg); color:var(--muted); cursor:pointer;
+    font-family:'DM Sans',sans-serif; font-size:.85rem; font-weight:500;
+    transition:.2s; white-space:nowrap;
+  }
+  .filter-btn:hover { opacity:.8; }
+  .filter-btn.active { background:var(--accent); color:#000; border-color:var(--accent); }
+  .filter-btn.active-red { background:var(--out-stock); color:#fff; border-color:var(--out-stock); }
+  .filter-btn.active-yellow { background:var(--low-stock); color:#000; border-color:var(--low-stock); }
+  .count-label { color:var(--muted); font-size:.8rem; margin-left:auto; white-space:nowrap; }
+  .loading {
+    display:flex; align-items:center; justify-content:center;
+    gap:12px; padding:80px; color:var(--muted); font-size:1rem;
+  }
+  .spinner {
+    width:24px; height:24px; border:2px solid var(--border);
+    border-top-color:var(--accent); border-radius:50%;
+    animation:spin .7s linear infinite;
+  }
+  @keyframes spin { to { transform:rotate(360deg); } }
+  .table-wrap { overflow-x:auto; padding:0 40px 40px; }
+  table { width:100%; border-collapse:collapse; margin-top:20px; }
+  thead th {
+    background:var(--surface); color:var(--muted); font-size:.7rem;
+    font-weight:600; letter-spacing:1.5px; text-transform:uppercase;
+    padding:12px 16px; text-align:left; border-bottom:2px solid var(--border);
+    white-space:nowrap; cursor:pointer; user-select:none;
+  }
+  thead th:hover { color:var(--accent); }
+  tbody tr { border-bottom:1px solid var(--border); transition:.15s; }
+  tbody tr:hover { background:rgba(240,165,0,0.04); }
+  tbody td { padding:13px 16px; font-size:.875rem; vertical-align:middle; }
+  .item-desc { font-weight:500; color:var(--text); max-width:320px; }
+  .uom-badge {
+    display:inline-block; padding:2px 8px; border-radius:4px;
+    background:rgba(255,255,255,0.06); color:var(--muted);
+    font-size:.75rem; font-weight:600;
+  }
+  .balance { font-family:'Bebas Neue',sans-serif; font-size:1.1rem; }
+  .loc-badge {
+    display:inline-block; padding:3px 10px; border-radius:4px;
+    font-size:.72rem; font-weight:600; letter-spacing:.5px; text-transform:uppercase;
+  }
+  .loc-CHINA { background:rgba(239,68,68,0.12); color:#f87171; }
+  .loc-SINGAPORE { background:rgba(59,130,246,0.12); color:#60a5fa; }
+  .loc-MALAYSIA { background:rgba(34,197,94,0.12); color:#4ade80; }
+  .status-pill {
+    display:inline-flex; align-items:center; gap:6px;
+    padding:4px 12px; border-radius:20px; font-size:.78rem; font-weight:600;
+  }
+  .status-pill .dot { width:6px; height:6px; border-radius:50%; flex-shrink:0; }
+  .status-in { background:rgba(34,197,94,0.12); color:#4ade80; }
+  .status-in .dot { background:#22c55e; }
+  .status-low { background:rgba(245,158,11,0.12); color:#fbbf24; }
+  .status-low .dot { background:#f59e0b; }
+  .status-fair { background:rgba(59,130,246,0.12); color:#93c5fd; }
+  .status-fair .dot { background:#3b82f6; }
+  .status-out { background:rgba(239,68,68,0.12); color:#f87171; }
+  .status-out .dot { background:#ef4444; }
+  .action-text { font-size:.8rem; color:var(--muted); }
+  .action-text.urgent { color:#fca5a5; font-weight:600; }
+  .no-results { text-align:center; padding:60px; color:var(--muted); }
+  .no-results span { font-family:'Bebas Neue',sans-serif; font-size:3rem; display:block; color:var(--border); }
+  .updated { text-align:right; font-size:.72rem; color:var(--muted); padding:8px 40px; letter-spacing:.5px; }
+  .refresh-btn {
+    background:none; border:1px solid var(--border); color:var(--muted);
+    padding:4px 12px; border-radius:6px; cursor:pointer; font-size:.75rem;
+    font-family:'DM Sans',sans-serif; transition:.2s; margin-left:8px;
+  }
+  .refresh-btn:hover { border-color:var(--accent); color:var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <div class="header-top">
+    <div>
+      <h1>WAREHOUSE <span>INVENTORY</span></h1>
+      <div class="subtitle">China Material Stock Report &mdash; Live Dashboard</div>
+    </div>
+    <div class="stats">
+      <div class="stat green"><div class="stat-num" id="cnt-in">-</div><div class="stat-label">In Stock</div></div>
+      <div class="stat yellow"><div class="stat-num" id="cnt-low">-</div><div class="stat-label">Low Stock</div></div>
+      <div class="stat blue"><div class="stat-num" id="cnt-fair">-</div><div class="stat-label">Fair Stock</div></div>
+      <div class="stat red"><div class="stat-num" id="cnt-out">-</div><div class="stat-label">Out of Stock</div></div>
+    </div>
+  </div>
+</header>
+
+<div class="controls">
+  <div class="search-wrap">
+    <span class="search-icon">&#128269;</span>
+    <input type="text" id="search" placeholder="Search item description...">
+  </div>
+  <button class="filter-btn active" onclick="setFilter('all',this)">All</button>
+  <button class="filter-btn" onclick="setFilter('In Stock',this)">In Stock</button>
+  <button class="filter-btn" onclick="setFilter('Low Stock',this)">Low Stock</button>
+  <button class="filter-btn" onclick="setFilter('Fair Stock',this)">Fair Stock</button>
+  <button class="filter-btn" onclick="setFilter('Out Of Stock',this)">Out of Stock</button>
+  <span class="count-label" id="count-label"></span>
+</div>
+
+<div class="updated" id="updated-time">
+  Loading data from Google Sheets...
+  <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>
+</div>
+
+<div id="main-content">
+  <div class="loading"><div class="spinner"></div> Loading inventory data...</div>
+</div>
+
+<script>
+const CSV_URL = "https://docs.google.com/spreadsheets/d/e/2PACX-1vTz0jvK_mMlCiZzthg9x17_4GmAYWHZR6yJZsG8MSiQHu6I0EIXJukMM2ViRBPlyCuT71Xt4XtuJXgP/pub?gid=0&single=true&output=csv";
+
+let RAW = [];
+let currentFilter = 'all';
+let currentSearch = '';
+let sortKey = '';
+let sortAsc = true;
+
+function parseCSV(text) {
+  const lines = text.trim().split('\n');
+  const headers = lines[0].split(',').map(h => h.replace(/"/g,'').trim());
+  const rows = [];
+  for (let i = 1; i < lines.length; i++) {
+    const vals = splitCSVLine(lines[i]);
+    if (vals.length < 2) continue;
+    const get = (name) => {
+      const idx = headers.findIndex(h => h.toLowerCase().includes(name.toLowerCase()));
+      return idx >= 0 ? (vals[idx]||'').replace(/"/g,'').trim() : '';
+    };
+    const desc = get('Item Description');
+    if (!desc) continue;
+    const balRaw = get('Balance Stock');
+    const bal = parseInt(balRaw) || 0;
+    rows.push({
+      desc, uom: get('UOM'), balance: bal,
+      location: get('Location'), status: get('Stock Status'),
+      action: get('Action Needed'), purchase: get('Purchase Status')
+    });
+  }
+  return rows;
+}
+
+function splitCSVLine(line) {
+  const result = []; let cur = ''; let inQ = false;
+  for (let c of line) {
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { result.push(cur); cur = ''; }
+    else cur += c;
+  }
+  result.push(cur);
+  return result;
+}
+
+function statusClass(s) {
+  if (s === 'In Stock') return 'status-in';
+  if (s === 'Low Stock') return 'status-low';
+  if (s === 'Fair Stock') return 'status-fair';
+  if (s === 'Out Of Stock') return 'status-out';
+  return 'status-fair';
+}
+
+function locClass(l) {
+  const k = (l||'').toUpperCase().trim();
+  if (k.includes('CHINA')) return 'loc-CHINA';
+  if (k.includes('MALAYSIA')) return 'loc-MALAYSIA';
+  return 'loc-SINGAPORE';
+}
+
+function render() {
+  let data = [...RAW];
+  if (currentFilter !== 'all') data = data.filter(r => r.status === currentFilter);
+  if (currentSearch) {
+    const q = currentSearch.toLowerCase();
+    data = data.filter(r => r.desc.toLowerCase().includes(q));
+  }
+  if (sortKey) {
+    data.sort((a,b) => {
+      let av = a[sortKey], bv = b[sortKey];
+      if (typeof av === 'number') return sortAsc ? av-bv : bv-av;
+      av = String(av).toLowerCase(); bv = String(bv).toLowerCase();
+      return sortAsc ? av.localeCompare(bv) : bv.localeCompare(av);
+    });
+  }
+
+  const wrap = document.getElementById('main-content');
+  if (!data.length) {
+    wrap.innerHTML = '<div class="no-results"><span>404</span>No items found</div>';
+  } else {
+    wrap.innerHTML = `<div class="table-wrap"><table>
+      <thead><tr>
+        <th onclick="sortTable('desc')"># ITEM DESCRIPTION &#8597;</th>
+        <th onclick="sortTable('uom')">UOM &#8597;</th>
+        <th onclick="sortTable('balance')">BALANCE &#8597;</th>
+        <th onclick="sortTable('location')">LOCATION &#8597;</th>
+        <th onclick="sortTable('status')">STOCK STATUS &#8597;</th>
+        <th>ACTION</th>
+        <th>PURCHASE STATUS</th>
+      </tr></thead>
+      <tbody>${data.map((r,i) => `
+        <tr>
+          <td class="item-desc">${i+1}. ${r.desc}</td>
+          <td><span class="uom-badge">${r.uom||'-'}</span></td>
+          <td><span class="balance" style="color:${r.balance===0?'#ef4444':r.balance<50?'#f59e0b':'#e8eaf0'}">${r.balance.toLocaleString()}</span></td>
+          <td><span class="loc-badge ${locClass(r.location)}">${r.location||'-'}</span></td>
+          <td><span class="status-pill ${statusClass(r.status)}"><span class="dot"></span>${r.status||'-'}</span></td>
+          <td class="action-text ${r.action==='Order Immediately'||r.action==='Need To Order'?'urgent':''}">${r.action||'-'}</td>
+          <td class="action-text">${r.purchase||'-'}</td>
+        </tr>`).join('')}
+      </tbody></table></div>`;
+  }
+
+  document.getElementById('count-label').textContent = `Showing ${data.length} of ${RAW.length} items`;
+  document.getElementById('cnt-in').textContent = RAW.filter(r=>r.status==='In Stock').length;
+  document.getElementById('cnt-low').textContent = RAW.filter(r=>r.status==='Low Stock').length;
+  document.getElementById('cnt-fair').textContent = RAW.filter(r=>r.status==='Fair Stock').length;
+  document.getElementById('cnt-out').textContent = RAW.filter(r=>r.status==='Out Of Stock').length;
+}
+
+function setFilter(f, btn) {
+  currentFilter = f;
+  document.querySelectorAll('.filter-btn').forEach(b=>b.classList.remove('active','active-red','active-yellow'));
+  if (f==='Out Of Stock') btn.classList.add('active-red');
+  else if (f==='Low Stock') btn.classList.add('active-yellow');
+  else btn.classList.add('active');
+  render();
+}
+
+function sortTable(key) {
+  if (sortKey === key) sortAsc = !sortAsc; else { sortKey = key; sortAsc = true; }
+  render();
+}
+
+document.getElementById('search').addEventListener('input', e => {
+  currentSearch = e.target.value; render();
+});
+
+async function loadData() {
+  document.getElementById('updated-time').innerHTML = 'Loading... <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>';
+  document.getElementById('main-content').innerHTML = '<div class="loading"><div class="spinner"></div> Loading inventory data...</div>';
+  try {
+    const res = await fetch(CSV_URL + '&t=' + Date.now());
+    const text = await res.text();
+    RAW = parseCSV(text);
+    const now = new Date();
+    document.getElementById('updated-time').innerHTML =
+      'Last updated: ' + now.toLocaleString('en-SG',{dateStyle:'medium',timeStyle:'short'}) +
+      ' &mdash; <button class="refresh-btn" onclick="loadData()">&#8635; Refresh</button>';
+    render();
+  } catch(e) {
+    document.getElementById('main-content').innerHTML =
+      '<div class="loading" style="color:#ef4444">Failed to load data. Check internet connection.</div>';
+    document.getElementById('updated-time').innerHTML =
+      'Error loading data <button class="refresh-btn" onclick="loadData()">&#8635; Try Again</button>';
+  }
+}
+
+loadData();
+// Auto refresh every 5 minutes
+setInterval(loadData, 5 * 60 * 1000);
+</script>
+</body>
+</html>
