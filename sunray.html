@@ -675,7 +675,7 @@ function addToCart(id,qty=1,color=null,option=null){
   save();updateCartCount();
   showToast(`✅ ${p.name} added to cart`);
 }
-function updateCartCount(){document.getElementById('cartCount').textContent=CART.reduce((s,c)=>s+c.qty,0);}
+function updateCartCount(){document.getElementById('cartCount').textContent=CART.length;}
 
 function renderCart(){
   const el=document.getElementById('cartContent');
