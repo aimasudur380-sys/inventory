@@ -774,56 +774,110 @@ function trackOrder(){
 // ── PURCHASE ORDER ──
 function openPO(orderId){
   const order=ORDERS.find(o=>o.id===orderId);if(!order)return;
-  const sc={Waiting:'waiting',Processing:'processing','Ready for Delivery':'ready',Delivered:'delivered',Cancelled:'cancelled'};
-  const itemRows=order.items.map((it,i)=>`<tr>
-    <td style="text-align:center">${i+1}</td>
-    <td>${it.sku||'-'}</td>
-    <td>${it.name}${it.color?' <span style="color:#f47c20">('+it.color+')</span>':''}${it.option?' <span style="color:#999">['+it.option+']</span>':''}</td>
-    <td style="text-align:center">${it.qty}</td>
-    <td style="text-align:right">${it.price?fmt(it.price):'-'}</td>
-    <td style="text-align:right">${it.price?fmt(it.price*it.qty):'-'}</td>
-  </tr>`).join('');
-  const total=order.items.reduce((s,i)=>s+(i.price*i.qty),0);
-  document.getElementById('po-print-area').innerHTML=`<div class="po-doc">
-    <div class="po-header">
-      <div class="po-company">
-        <div class="name">🏭 SUNRAY WAREHOUSE</div>
-        <div class="sub">Industrial Supply Management</div>
-        <div style="font-size:12px;color:#666;margin-top:6px">Tel: +65 XXXX XXXX<br>Email: info@sunray.com<br>Address: Singapore</div>
+
+  // Est. Delivery Date = order date + 5 days
+  const orderDate=new Date(order.date);
+  const estStart=new Date(orderDate);estStart.setDate(estStart.getDate()+5);
+  const estEnd=new Date(orderDate);estEnd.setDate(estEnd.getDate()+9);
+  const fmtDate=d=>d.toLocaleDateString('en-SG',{day:'2-digit',month:'short',year:'numeric'});
+  const estDelivery=fmtDate(estStart)+' - '+fmtDate(estEnd);
+  const processedDate=fmtDate(orderDate);
+
+  // DO number from order id (e.g. ORD-0001 → 00001)
+  const doNum=order.id.replace('ORD-','0');
+
+  const itemRows=order.items.map(it=>`
+    <tr>
+      <td style="padding:10px 12px;vertical-align:top;border-bottom:1px solid #eee;">
+        <div style="font-size:11px;color:#666;margin-bottom:2px">${it.sku||'-'}</div>
+        <div style="font-weight:700;font-size:13px">${it.name}</div>
+        <div style="font-size:12px;color:#888;margin-top:2px">
+          Option: ${[it.color||'-',it.option||''].filter(Boolean).join('; ')} - SKU: ${it.sku||'-'}
+        </div>
+        <div style="font-size:12px;color:#f47c20;margin-top:4px;font-weight:600">
+          Est. Delivery Date: 3 - 5 Working Days
+        </div>
+      </td>
+      <td style="padding:10px 12px;text-align:center;vertical-align:top;border-bottom:1px solid #eee;font-weight:700">${it.qty}</td>
+      <td style="padding:10px 12px;text-align:center;vertical-align:top;border-bottom:1px solid #eee;color:#666">${it.uom||'pc'}</td>
+    </tr>`).join('');
+
+  document.getElementById('po-print-area').innerHTML=`
+  <div class="po-doc" style="font-family:Arial,sans-serif;padding:36px;color:#111;background:#fff;">
+
+    <!-- TOP: GST + Company Logo -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:6px;">
+      <div style="font-size:11px;color:#333;line-height:1.8;">
+        <div><strong>GST REGISTRATION NO:</strong> XXXXXXXXX</div>
+        <div><strong>COMPANY REGISTRATION NO:</strong> XXXXXXXXX</div>
       </div>
-      <div class="po-title-block">
-        <div class="po-title">PURCHASE ORDER</div>
-        <div class="po-num">${order.id}</div>
-        <div class="po-date">Date: ${new Date(order.date).toLocaleDateString('en-SG',{day:'2-digit',month:'long',year:'numeric'})}</div>
+      <div style="text-align:right;">
+        <div style="font-family:'Barlow Condensed',Arial,sans-serif;font-size:1.6rem;font-weight:800;color:#f47c20;letter-spacing:1px;">🏭 SUNRAY</div>
+        <div style="font-size:10px;color:#999;letter-spacing:2px;text-transform:uppercase;">Warehouse & Industrial Supply</div>
+        <div style="font-size:11px;color:#666;margin-top:4px;">Date Processed: ${processedDate}</div>
+        <div style="font-size:11px;color:#666;">DO Number: ${doNum}</div>
       </div>
     </div>
-    <div class="po-info">
-      <div class="po-info-block">
-        <div class="block-title">Bill To / Customer</div>
-        <div class="row"><span class="key">Name</span><span class="val">${order.customer.name}</span></div>
-        <div class="row"><span class="key">Phone</span><span class="val">${order.customer.phone}</span></div>
-        ${order.customer.company?`<div class="row"><span class="key">Company</span><span class="val">${order.customer.company}</span></div>`:''}
-        ${order.customer.email?`<div class="row"><span class="key">Email</span><span class="val">${order.customer.email}</span></div>`:''}
-        <div class="row"><span class="key">Address</span><span class="val">${order.customer.address}</span></div>
+
+    <hr style="border:none;border-top:2px solid #eee;margin:12px 0 20px;">
+
+    <!-- TITLE -->
+    <div style="font-size:1.3rem;font-weight:700;margin-bottom:20px;">Delivery Order</div>
+
+    <!-- BILLING + DELIVERY INFO -->
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:24px;margin-bottom:24px;">
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#333;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #ddd;">Billing Information</div>
+        <table style="font-size:13px;width:100%;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#555;width:130px;">Company Name:</td><td style="font-weight:600;color:#f47c20;">${order.customer.company||'—'}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Name:</td><td style="font-weight:600;">${order.customer.name}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Contact Number:</td><td>${order.customer.phone}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Address:</td><td>${order.customer.address}</td></tr>
+          ${order.customer.email?`<tr><td style="padding:3px 0;color:#555;">Email:</td><td>${order.customer.email}</td></tr>`:''}
+        </table>
       </div>
-      <div class="po-info-block">
-        <div class="block-title">Order Details</div>
-        <div class="row"><span class="key">Order #</span><span class="val">${order.id}</span></div>
-        <div class="row"><span class="key">Date</span><span class="val">${new Date(order.date).toLocaleDateString('en-SG')}</span></div>
-        <div class="row"><span class="key">Status</span><span class="val" style="color:#f47c20">${order.status}</span></div>
-        <div class="row"><span class="key">Total Items</span><span class="val">${order.items.reduce((s,i)=>s+i.qty,0)} pcs</span></div>
-        ${order.customer.notes?`<div class="row"><span class="key">Notes</span><span class="val">${order.customer.notes}</span></div>`:''}
+      <div>
+        <div style="font-size:12px;font-weight:700;color:#333;margin-bottom:10px;padding-bottom:4px;border-bottom:1px solid #ddd;">Delivery Information</div>
+        <table style="font-size:13px;width:100%;border-collapse:collapse;">
+          <tr><td style="padding:3px 0;color:#555;width:130px;">Order Number:</td><td style="font-weight:600;color:#f47c20;">${order.id}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Order Date:</td><td>${processedDate}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Status:</td><td style="font-weight:700;color:#f47c20;">${order.status}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Contact Person:</td><td>${order.customer.name}, ${order.customer.phone}</td></tr>
+          <tr><td style="padding:3px 0;color:#555;">Address:</td><td>${order.customer.address}</td></tr>
+          ${order.customer.notes?`<tr><td style="padding:3px 0;color:#555;">Notes:</td><td>${order.customer.notes}</td></tr>`:''}
+        </table>
       </div>
     </div>
-    <table class="po-items-table">
-      <thead><tr><th style="width:40px">#</th><th>SKU</th><th>Product Description</th><th style="text-align:center">Qty</th><th style="text-align:right">Unit Price</th><th style="text-align:right">Amount</th></tr></thead>
-      <tbody>${itemRows}
-        <tr><td colspan="5" style="text-align:right;font-weight:700;padding:12px 14px">TOTAL</td><td style="text-align:right;font-weight:700;color:#f47c20;font-size:1.1rem">${total?fmt(total):'—'}</td></tr>
-      </tbody>
+
+    <!-- ITEMS TABLE -->
+    <table style="width:100%;border-collapse:collapse;border:1px solid #ddd;margin-bottom:24px;">
+      <thead>
+        <tr style="background:#f5f5f5;">
+          <td colspan="3" style="padding:10px 12px;font-size:12px;">
+            <strong>Sunray Warehouse & Industrial Supply</strong>
+            <span style="margin-left:24px;color:#555;">Order Number: <strong>${order.id}</strong></span>
+          </td>
+        </tr>
+        <tr style="background:#333;color:#fff;">
+          <th style="padding:9px 12px;text-align:left;font-size:12px;font-weight:700;border:1px solid #444;">SKU &amp; Products</th>
+          <th style="padding:9px 12px;text-align:center;font-size:12px;font-weight:700;border:1px solid #444;width:80px;">Quantity</th>
+          <th style="padding:9px 12px;text-align:center;font-size:12px;font-weight:700;border:1px solid #444;width:80px;">UOM</th>
+        </tr>
+      </thead>
+      <tbody>${itemRows}</tbody>
     </table>
-    <div class="po-footer">
-      <div class="po-note">• Payment terms: Cash / Invoice / Bank Transfer<br>• This P/O is computer generated and valid without signature<br>• For queries: +65 XXXX XXXX or info@sunray.com</div>
-      <div class="po-stamp"><div class="status-big ${sc[order.status]||'waiting'}">${order.status.toUpperCase()}</div></div>
+
+    <!-- FOOTER -->
+    <div style="display:flex;justify-content:space-between;align-items:flex-end;border-top:2px solid #eee;padding-top:16px;">
+      <div style="font-size:11px;color:#999;line-height:1.7;max-width:400px;">
+        • This is a computer generated delivery order<br>
+        • For queries: +65 XXXX XXXX | info@sunray.com<br>
+        • Sunray Warehouse & Industrial Supply, Singapore
+      </div>
+      <div style="text-align:right;">
+        <div style="font-size:11px;color:#999;margin-bottom:40px;">Authorised Signature</div>
+        <div style="border-top:1px solid #333;padding-top:6px;font-size:12px;font-weight:700;">SUNRAY WAREHOUSE</div>
+      </div>
     </div>
   </div>`;
   document.getElementById('poModal').classList.add('open');
